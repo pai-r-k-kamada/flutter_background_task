@@ -11,6 +11,7 @@ enum ChannelName: String {
     case methods = "com.neverjp.background_task/methods"
     case bgEvent = "com.neverjp.background_task/bgEvent"
     case statusEvent = "com.neverjp.background_task/statusEvent"
+    case beaconEvent = "com.neverjp.background_task/beaconEvent"
     
     var value: String {
         rawValue

@@ -107,10 +107,11 @@ class LocationUpdatesService: Service() {
         var NOTIFICATION_ICON = "@mipmap/ic_launcher"
         private const val PACKAGE_NAME =
             "com.google.android.gms.location.sample.locationupdatesforegroundservice"
-        private const val CHANNEL_ID = "background_task_channel_01"
+        private const val CHANNEL_ID = "foreground_service"
         private const val EXTRA_STARTED_FROM_NOTIFICATION = "$PACKAGE_NAME.started_from_notification"
 
         private const val NOTIFICATION_ID = 373737
+        //const val UPDATE_INTERVAL_IN_MILLISECONDS: Long = 1000
 
         private lateinit var broadcastReceiver: BroadcastReceiver
         private const val STOP_SERVICE = "stop_service"
@@ -135,7 +136,7 @@ class LocationUpdatesService: Service() {
             } else {
                 PendingIntent.getActivity(this, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT)
             }
-            val builder = NotificationCompat.Builder(this, "BackgroundTaskLocation")
+            val builder = NotificationCompat.Builder(this, "foreground_service")
                 .setContentTitle(NOTIFICATION_TITLE)
                 .setOngoing(true)
                 .setSound(null)
@@ -160,8 +161,8 @@ class LocationUpdatesService: Service() {
 
     private fun createRequest(distanceFilter: Float, updateIntervalInMilliseconds: Long, desiredAccuracy: String): LocationRequest =
         LocationRequest.Builder(
-            DesiredAccuracy.lookup(desiredAccuracy).getLocationPriority(),
-            updateIntervalInMilliseconds
+            DesiredAccuracy.lookup(desiredAccuracy).getLocationPriority(),//Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+           updateIntervalInMilliseconds// UPDATE_INTERVAL_IN_MILLISECONDS
         ).apply {
             setMinUpdateDistanceMeters(distanceFilter)
             setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
@@ -282,6 +283,15 @@ class LocationUpdatesService: Service() {
         super.onDestroy()
         isRunning = false
         unregisterReceiver(broadcastReceiver)
+        try {
+            if (isGoogleApiAvailable) {
+                fusedLocationClient!!.removeLocationUpdates(fusedLocationCallback!!)
+            }
+            notificationManager!!.cancel(NOTIFICATION_ID)
+            statusLiveData.value = StatusEventStreamHandler.StatusType.Stop.value
+        } catch (unlikely: SecurityException) {
+            Log.e(TAG, "$unlikely")
+        }
     }
 
     @SuppressLint("MissingPermission")

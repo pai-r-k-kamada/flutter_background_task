@@ -6,4 +6,5 @@ enum class ChannelName(
     METHODS("com.neverjp.background_task/methods"),
     BG_EVENT("com.neverjp.background_task/bgEvent"),
     STATUS_EVENT("com.neverjp.background_task/statusEvent"),
+    BEACON_EVENT("com.neverjp.background_task/beaconEvent"),
 }

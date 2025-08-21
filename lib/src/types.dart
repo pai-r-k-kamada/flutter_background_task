@@ -1,3 +1,5 @@
+import 'package:background_task/src/beacon.dart';
+
 /// `Location` is a type representing latitude and longitude.
 typedef Location = ({double? lat, double? lng});
 
@@ -5,7 +7,7 @@ typedef Location = ({double? lat, double? lng});
 typedef StatusEvent = ({StatusEventType status, String? message});
 
 /// `BackgroundHandler` is a type for a function that updates location.
-typedef BackgroundHandler = void Function(Location);
+typedef BackgroundHandler = void Function(Location, Beacon, ServiceEvents);
 
 /// `StatusEventType` is an enumeration representing the type of status event.
 enum StatusEventType {
@@ -58,8 +60,30 @@ enum ChannelName {
   methods('com.neverjp.background_task/methods'),
   bgEvent('com.neverjp.background_task/bgEvent'),
   statusEvent('com.neverjp.background_task/statusEvent'),
+  beaconEvent('com.neverjp.background_task/beaconEvent'),
   ;
 
   const ChannelName(this.value);
   final String value;
 }
+
+enum ServiceEvents {
+  Monitor('monitor_notifier'),
+  Range('range_notifier'),
+  Location('location_notifier');
+
+  const ServiceEvents(this.name);
+  final String name;
+}
+
+typedef Beacon = ({
+  String? uuid,
+  String? major,
+  String? minor,
+  String? distance,
+  String? rssi,
+  String? txpower,
+  ProximityState? proximity,
+  String? timestamp,
+  MonitorState? monitorState
+});

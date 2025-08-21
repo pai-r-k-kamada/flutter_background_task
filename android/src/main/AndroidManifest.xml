@@ -8,5 +8,12 @@
             android:enabled="true"
             android:exported="false"
             android:permission="" />
+
+        <service
+          android:name=".BeaconService"
+          android:foregroundServiceType="location"
+          android:enabled="true"
+          android:exported="false"
+          android:permission="" />
     </application>
 </manifest>
