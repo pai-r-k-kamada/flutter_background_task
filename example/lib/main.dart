@@ -12,16 +12,30 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
-void backgroundHandler(Location data) {
-  debugPrint('backgroundHandler: ${DateTime.now()}, $data');
+void backgroundHandler(Location? location, Beacon? beacon, ServiceEvents event) {
+  debugPrint('backgroundHandler: ${DateTime.now()}, event: ${event.name}');
+  debugPrint('  Location: $location');
+  debugPrint('  Beacon: $beacon');
+  
   Future(() async {
     await IsarRepository.configure();
-    IsarRepository.isar.writeTxnSync(() {
-      final latLng = LatLng()
-        ..lat = data.lat ?? 0
-        ..lng = data.lng ?? 0;
-      IsarRepository.isar.latLngs.putSync(latLng);
-    });
+    
+    if (location != null) {
+      // 位置情報の処理
+      IsarRepository.isar.writeTxnSync(() {
+        final latLng = LatLng()
+          ..lat = location.lat ?? 0
+          ..lng = location.lng ?? 0;
+        IsarRepository.isar.latLngs.putSync(latLng);
+      });
+    }
+    
+    if (beacon != null) {
+      // ビーコンデータの処理
+      debugPrint('Background beacon processing: ${beacon.uuid}');
+      // ここでビーコン検出時の処理を実装
+      // 例: 通知送信、API呼び出し、データベース保存など
+    }
   });
 }
 
@@ -59,6 +73,7 @@ class _MainPageState extends State<MainPage> {
 
   late final StreamSubscription<Location> _bgDisposer;
   late final StreamSubscription<StatusEvent> _statusDisposer;
+  late final StreamSubscription<Map<String, dynamic>> _beaconDisposer;
 
   @override
   void initState() {
@@ -96,6 +111,15 @@ class _MainPageState extends State<MainPage> {
       if (event.status == StatusEventType.deviceRebooted) {
         _handleDeviceReboot();
       }
+    });
+
+    // ビーコン検出の監視
+    _beaconDisposer = BackgroundTask.instance.beacon.listen((beaconData) {
+      final message = 'Beacon detected: ${DateTime.now()}\n$beaconData';
+      debugPrint(message);
+      setState(() {
+        _bgText = message;
+      });
     });
   }
 
@@ -142,6 +166,7 @@ class _MainPageState extends State<MainPage> {
   void dispose() {
     _bgDisposer.cancel();
     _statusDisposer.cancel();
+    _beaconDisposer.cancel();
     super.dispose();
   }
 

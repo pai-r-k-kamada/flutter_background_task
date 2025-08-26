@@ -16,11 +16,24 @@ class BootCompletedReceiver : BroadcastReceiver() {
         Log.d(TAG, "Boot completed detected: ${intent.action}")
         
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            // 再起動完了を status チャンネルで通知
-            StatusEventStreamHandler.eventSink?.success(
-                StatusEventStreamHandler.StatusType.DeviceRebooted("Boot completed detected").value
-            )
-            Log.d(TAG, "Device reboot notification sent")
+            // 保存されたビーコン設定があるかチェック
+            val pref = context.getSharedPreferences("BACKGROUND_TASK", Context.MODE_PRIVATE)
+            val hasBeaconSettings = pref.getBoolean("beacon_auto_start", false)
+            val savedUUID = pref.getString("beacon_uuid", "")
+            
+            Log.d(TAG, "Checking beacon settings: hasSettings=$hasBeaconSettings, uuid=$savedUUID")
+            
+            if (hasBeaconSettings && !savedUUID.isNullOrEmpty()) {
+                // BeaconServiceを起動してビーコン監視を自動開始
+                val serviceIntent = Intent(context, BeaconService::class.java)
+                serviceIntent.putExtra("uuid", savedUUID)
+                serviceIntent.putExtra("auto_start_from_boot", true)
+                
+                context.startService(serviceIntent)
+                Log.d(TAG, "BeaconService started automatically after boot with UUID: $savedUUID")
+            } else {
+                Log.d(TAG, "No beacon auto-start settings found")
+            }
         }
     }
 }

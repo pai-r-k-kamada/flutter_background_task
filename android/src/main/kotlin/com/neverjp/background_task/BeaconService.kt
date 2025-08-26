@@ -73,13 +73,34 @@ class BeaconService: Service()  {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
-        UUID = intent!!.getStringExtra("uuid")!!
         looper = Looper.myLooper()
         pref = applicationContext.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
-        //ビーコンの取得処理を開始
-        startBeaconMonitor()
-//        initHandler()
-//        startLocationService()
+        
+        // Intent からUUIDを取得、なければ保存された値を使用
+        var intentUuid = intent?.getStringExtra("uuid")
+        val isAutoStartFromBoot = intent?.getBooleanExtra("auto_start_from_boot", false) ?: false
+        
+        if (intentUuid.isNullOrEmpty()) {
+            // 再起動等でintentがnullの場合は保存された設定を復元
+            intentUuid = pref.getString("beacon_uuid", "")
+        }
+        
+        if (!intentUuid.isNullOrEmpty()) {
+            UUID = intentUuid
+            Log.d(TAG, "Starting beacon monitoring with UUID: $UUID (auto_start: $isAutoStartFromBoot)")
+            
+            // UUID設定を保存（次回の自動復元用）
+            pref.edit().apply {
+                putString("beacon_uuid", UUID)
+                putBoolean("beacon_auto_start", true)
+            }.apply()
+            
+            // ビーコンの取得処理を開始
+            startBeaconMonitor()
+        } else {
+            Log.w(TAG, "No UUID provided for beacon monitoring")
+        }
+        
         return START_STICKY
     }
 
@@ -319,10 +340,15 @@ class BeaconService: Service()  {
             if (it != 0.toLong() && looper != null) {
                 val args = HashMap<String, Any?>()
                 args["callbackHandlerRawHandle"] = it
-                args["data"] = value
+                args["event"] = event.code
+                args["beaconData"] = if(event == ServiceEvents.Monitor) value else null
+                args["locationData"] = if(event == ServiceEvents.Location) value else null
 
                 Handler(looper!!).post {
-                    methodChannel!!.invokeMethod(event.code, args)
+                    // backgroundHandlerを呼び出し
+                    methodChannel!!.invokeMethod("background_handler", args)
+                    
+                    // 従来のbeacon streamにも送信
                     if(event == ServiceEvents.Monitor){
                         _beaconLiveData.value = value
                     }

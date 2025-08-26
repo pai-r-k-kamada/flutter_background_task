@@ -6,8 +6,8 @@ typedef Location = ({double? lat, double? lng});
 /// `StatusEvent` is a type representing a status event.
 typedef StatusEvent = ({StatusEventType status, String? message});
 
-/// `BackgroundHandler` is a type for a function that updates location.
-typedef BackgroundHandler = void Function(Location, Beacon, ServiceEvents);
+/// `BackgroundHandler` is a type for a function that handles background events.
+typedef BackgroundHandler = void Function(Location?, Beacon?, ServiceEvents);
 
 /// `StatusEventType` is an enumeration representing the type of status event.
 enum StatusEventType {
