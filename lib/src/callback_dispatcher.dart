@@ -53,7 +53,7 @@ void callbackDispatcher() {
               timestamp: DateTime.now().millisecondsSinceEpoch.toString(),
               monitorState: MonitorState.values.firstWhere(
                 (state) => state.id == (beaconJson['state'] as int? ?? 0),
-                orElse: () => MonitorState.Unknown
+                orElse: () => MonitorState.Exit
               )
             );
           }
