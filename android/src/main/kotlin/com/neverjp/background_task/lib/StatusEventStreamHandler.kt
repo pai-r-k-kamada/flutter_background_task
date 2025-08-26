@@ -9,6 +9,7 @@ class StatusEventStreamHandler:  EventChannel.StreamHandler  {
         class Updated(val message: String) : StatusType()
         class Error(val message: String) : StatusType()
         class Permission(val message: String) : StatusType()
+        class DeviceRebooted(val message: String) : StatusType()
 
         val value: String
             get() = when (this) {
@@ -17,6 +18,7 @@ class StatusEventStreamHandler:  EventChannel.StreamHandler  {
                 is Updated -> "updated,$message"
                 is Error -> "error,$message"
                 is Permission -> "permission,$message"
+                is DeviceRebooted -> "device_rebooted,$message"
             }
     }
 

@@ -16,6 +16,7 @@ enum StatusEventType {
   updated('updated'),
   error('error'),
   permission('permission'),
+  deviceRebooted('device_rebooted'),
   ;
 
   const StatusEventType(this.value);

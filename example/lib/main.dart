@@ -9,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
 void backgroundHandler(Location data) {
@@ -54,6 +55,7 @@ class _MainPageState extends State<MainPage> {
   String _bgText = 'no start';
   String _statusText = 'status';
   bool _isEnabledEvenIfKilled = true;
+  String _beaconUUID = 'D30A3941-35F9-D31A-215B-1EACF2DADB8B';
 
   late final StreamSubscription<Location> _bgDisposer;
   late final StreamSubscription<StatusEvent> _statusDisposer;
@@ -89,7 +91,51 @@ class _MainPageState extends State<MainPage> {
       setState(() {
         _statusText = message;
       });
+      
+      // 再起動感知時の処理
+      if (event.status == StatusEventType.deviceRebooted) {
+        _handleDeviceReboot();
+      }
     });
+  }
+
+  // 再起動感知時の処理
+  void _handleDeviceReboot() async {
+    debugPrint('Device reboot detected! Checking if beacon detection should restart...');
+    
+    final prefs = await SharedPreferences.getInstance();
+    final shouldAutoRestart = prefs.getBool('auto_restart_beacon') ?? false;
+    final savedUUID = prefs.getString('beacon_uuid') ?? '';
+    
+    if (shouldAutoRestart && savedUUID.isNotEmpty) {
+      debugPrint('Auto-restarting beacon detection with UUID: $savedUUID');
+      
+      // ビーコン検出を自動再開
+      await BackgroundTask.instance.startBeacon(savedUUID);
+      
+      setState(() {
+        _statusText = '再起動後にビーコン検出を自動復元しました';
+        _beaconUUID = savedUUID;
+      });
+    } else {
+      setState(() {
+        _statusText = '端末が再起動されました。ビーコン検出の再開が必要です';
+      });
+    }
+  }
+
+  // ビーコン検出設定を保存
+  void _saveBeaconSettings(String uuid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('beacon_uuid', uuid);
+    await prefs.setBool('auto_restart_beacon', true);
+  }
+
+  // 自動再開設定を削除
+  void _clearBeaconSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('beacon_uuid');
+    await prefs.setBool('auto_restart_beacon', false);
   }
 
   @override
@@ -238,6 +284,61 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            // ビーコン関連のボタン
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: FilledButton(
+                    onPressed: () async {
+                      final status = await Permission.location.request();
+                      final statusAlways =
+                          await Permission.locationAlways.request();
+
+                      if (status.isGranted && statusAlways.isGranted) {
+                        // ビーコン開始時に設定を保存
+                        await _saveBeaconSettings(_beaconUUID);
+                        await BackgroundTask.instance.startBeacon(_beaconUUID);
+                        setState(() {
+                          _bgText = 'Beacon detection started';
+                        });
+                      } else {
+                        setState(() {
+                          _bgText = 'Permission is not granted.\n'
+                              'location: $status\n'
+                              'locationAlways: $statusAlways';
+                        });
+                      }
+                    },
+                    child: const Text('Start Beacon'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FilledButton(
+                    onPressed: () async {
+                      await _clearBeaconSettings();
+                      await BackgroundTask.instance.stopBeacon();
+                      setState(() {
+                        _bgText = 'Beacon detection stopped';
+                      });
+                    },
+                    child: const Text('Stop Beacon'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Beacon UUID: $_beaconUUID',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '端末再起動後の自動復元が有効です',
+              style: TextStyle(fontSize: 10, color: Colors.blue[600]),
             ),
           ],
         ),
