@@ -345,12 +345,16 @@ class BeaconService: Service()  {
                 args["locationData"] = if(event == ServiceEvents.Location) value else null
 
                 Handler(looper!!).post {
-                    // backgroundHandlerを呼び出し
-                    methodChannel!!.invokeMethod("background_handler", args)
-                    
-                    // 従来のbeacon streamにも送信
+                    // 先にLiveDataを更新（確実に通知を送る）
                     if(event == ServiceEvents.Monitor){
                         _beaconLiveData.value = value
+                    }
+                    
+                    // backgroundHandlerは例外処理付きで呼び出し
+                    try {
+                        methodChannel!!.invokeMethod("background_handler", args)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to invoke background_handler: $e")
                     }
                 }
             }
