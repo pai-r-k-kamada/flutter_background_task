@@ -7,6 +7,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.os.*
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -106,6 +108,13 @@ class BeaconService: Service()  {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun startBeaconMonitor(){
+        // 位置情報権限のチェック
+        if (!hasLocationPermissions()) {
+            Log.w(TAG, "Location permissions not granted, stopping service")
+            stopSelf()
+            return
+        }
+        
         if(beaconManager == null){
             //ビーコンマネージャーのインスタンス生成
             beaconManager = BeaconManager.getInstanceForApplication(applicationContext)
@@ -131,8 +140,14 @@ class BeaconService: Service()  {
         //ビーコン取得時の処理をセット
         beaconManager!!.addMonitorNotifier(monitorNotifier)
 //        beaconManager!!.addRangeNotifier(rangeNotifier)
-        //ビーコン取得処理の開始
-        beaconManager!!.startMonitoring(this@BeaconService.region!!)
+        
+        try {
+            //ビーコン取得処理の開始
+            beaconManager!!.startMonitoring(this@BeaconService.region!!)
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException when starting beacon monitoring: $e")
+            stopSelf()
+        }
     }
 
     //リージョン監視イベント
@@ -332,6 +347,19 @@ class BeaconService: Service()  {
     inner class LocalBinder : Binder() {
         internal val service: BeaconService
             get() = this@BeaconService
+    }
+    
+    // 位置情報権限のチェック
+    private fun hasLocationPermissions(): Boolean {
+        val fineLocation = ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        val coarseLocation = ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        return fineLocation || coarseLocation
     }
 
     //データをFlutterのHandlerに送信
