@@ -20,45 +20,22 @@ void callbackDispatcher() {
           final callback = PluginUtilities.getCallbackFromHandle(
             CallbackHandle.fromRawHandle(handle),
           );
-          
-          // イベントタイプの取得
-          final eventName = json['event'] as String?;
-          final event = ServiceEvents.values.firstWhere(
-            (e) => e.name == eventName, 
-            orElse: () => ServiceEvents.Location
+          final data = (
+            lat: json['lat'] as double?,
+            lng: json['lng'] as double?,
           );
-          
-          // 位置データの処理
-          Location? locationData;
-          final locationJson = json['locationData'] as Map<String, dynamic>?;
-          if (locationJson != null) {
-            locationData = (
-              lat: locationJson['lat'] as double?,
-              lng: locationJson['lng'] as double?,
-            );
-          }
-          
-          // ビーコンデータの処理
-          Beacon? beaconData;
-          final beaconJson = json['beaconData'] as Map<String, dynamic>?;
-          if (beaconJson != null) {
-            beaconData = (
-              uuid: beaconJson['region']?.toString(),
-              major: null,
-              minor: null,
-              proximity: null,
-              distance: null,
-              rssi: null,
-              txpower: null,
-              timestamp: DateTime.now().millisecondsSinceEpoch.toString(),
-              monitorState: MonitorState.values.firstWhere(
-                (state) => state.id == (beaconJson['state'] as int? ?? 0),
-                orElse: () => MonitorState.Exit
-              )
-            );
-          }
-          
-          callback?.call(locationData, beaconData, event);
+          const beaconInfo = (
+            uuid: null as String?,
+            major: null as String?,
+            minor: null as String?,
+            proximity: null as ProximityState?,
+            distance: null as String?,
+            rssi: null as String?,
+            txpower: null as String?,
+            timestamp: null as String?,
+            monitorState: null as MonitorState?,
+          );
+          callback?.call(data, beaconInfo, ServiceEvents.Location);
         }
       } else if(call.method == ServiceEvents.Monitor.name){
         final json = call.arguments as Map;

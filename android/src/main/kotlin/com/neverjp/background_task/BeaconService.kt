@@ -340,21 +340,12 @@ class BeaconService: Service()  {
             if (it != 0.toLong() && looper != null) {
                 val args = HashMap<String, Any?>()
                 args["callbackHandlerRawHandle"] = it
-                args["event"] = event.code
-                args["beaconData"] = if(event == ServiceEvents.Monitor) value else null
-                args["locationData"] = if(event == ServiceEvents.Location) value else null
+                args["data"] = value
 
                 Handler(looper!!).post {
-                    // 先にLiveDataを更新（確実に通知を送る）
+                    methodChannel!!.invokeMethod(event.code, args)
                     if(event == ServiceEvents.Monitor){
                         _beaconLiveData.value = value
-                    }
-                    
-                    // backgroundHandlerは例外処理付きで呼び出し
-                    try {
-                        methodChannel!!.invokeMethod("background_handler", args)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to invoke background_handler: $e")
                     }
                 }
             }
