@@ -87,9 +87,6 @@ class BeaconService: Service()  {
         //iBeacon用のパーサーをセット
         beaconManager!!.beaconParsers.add(BeaconParser().setBeaconLayout(IBEACON_FORMAT))
         
-        // Disable ModelSpecific distance calculations to avoid URL null reference issues
-        org.altbeacon.beacon.distance.ModelSpecificDistanceCalculator.requestManager = null
-
         //ハンドラーの初期化(実行しないとFlutter側の処理を呼び出せない)
         initHandler()
         //取得対象となるUUIDを用意
