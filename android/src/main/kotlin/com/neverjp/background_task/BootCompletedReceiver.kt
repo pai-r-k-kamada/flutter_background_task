@@ -28,7 +28,12 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 serviceIntent.putExtra("uuid", savedUUID)
                 serviceIntent.putExtra("auto_start_from_boot", true)
                 
-                context.startService(serviceIntent)
+                // Android 8.0+ (API 26+) では startForegroundService を使用
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
                 Log.d(TAG, "BeaconService started automatically after boot with UUID: $savedUUID")
             } else {
                 Log.d(TAG, "No beacon auto-start settings found")

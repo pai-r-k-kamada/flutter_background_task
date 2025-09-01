@@ -195,7 +195,12 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
 
     intent.putExtra("uuid", uuid)
 
-    context!!.startService(intent)
+    // Android 8.0+ (API 26+) では startForegroundService を使用
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      context!!.startForegroundService(intent)
+    } else {
+      context!!.startService(intent)
+    }
   }
 
   private fun stopBeaconService() {
