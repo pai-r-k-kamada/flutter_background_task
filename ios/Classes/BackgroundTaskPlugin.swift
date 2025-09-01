@@ -129,6 +129,10 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
     }
     
     public func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [AnyHashable : Any] = [:]) -> Bool {
+        // 1. 再起動感知
+        if detectDeviceReboot() {
+            notifyDeviceReboot()
+        }
         return true
     }
 
@@ -226,5 +230,39 @@ public class BackgroundTaskPlugin: NSObject, FlutterPlugin, CLLocationManagerDel
             "region" : (region as! CLBeaconRegion).uuid.uuidString,
             "state"  : 0
         ])
+    }
+    
+    // MARK: - Device Reboot Detection
+    private func detectDeviceReboot() -> Bool {
+        guard let currentBootTime = getSystemBootTime() else { return false }
+        
+        let storedBootTime = UserDefaults.standard.double(forKey: "system_boot_time")
+        let currentBootTimeInterval = currentBootTime.timeIntervalSince1970
+        
+        // 初回起動 または Boot時刻が変わった場合
+        if storedBootTime == 0 || abs(currentBootTimeInterval - storedBootTime) > 1.0 {
+            UserDefaults.standard.set(currentBootTimeInterval, forKey: "system_boot_time")
+            return storedBootTime != 0 // 初回起動は再起動扱いしない
+        }
+        
+        return false
+    }
+    
+    private func getSystemBootTime() -> Date? {
+        var mib = [CTL_KERN, KERN_BOOTTIME]
+        var bootTime = timeval()
+        var size = MemoryLayout<timeval>.size
+        
+        guard sysctl(&mib, 2, &bootTime, &size, nil, 0) == 0 else { return nil }
+        
+        let bootTimeInterval = TimeInterval(bootTime.tv_sec) + TimeInterval(bootTime.tv_usec) / 1_000_000.0
+        return Date(timeIntervalSince1970: bootTimeInterval)
+    }
+    
+    private func notifyDeviceReboot() {
+        StatusEventStreamHandler.eventSink?(
+            StatusEventStreamHandler.StatusType.deviceRebooted(message: "Device reboot detected").value
+        )
+        debugPrint("Device reboot notification sent")
     }
 }

@@ -201,6 +201,13 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
   private fun stopBeaconService() {
     val intent = Intent(context, BeaconService::class.java)
     context!!.stopService(intent)
+    
+    // 自動開始設定をクリア
+    pref.edit().apply {
+      remove("beacon_uuid")
+      putBoolean("beacon_auto_start", false)
+    }.apply()
+    
     BeaconService.statusLiveData.value = StatusEventStreamHandler.StatusType.Stop.value
     BeaconService.statusLiveData.removeObserver(statusObserver)
     BeaconService.beaconLiveData.removeObserver(beaconObserver)

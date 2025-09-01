@@ -17,6 +17,7 @@ final class StatusEventStreamHandler: NSObject, FlutterStreamHandler {
         case updated(message: String)
         case error(message: String)
         case permission(message: String)
+        case deviceRebooted(message: String)
         var value: String {
             switch (self) {
             case .start(message: let message):
@@ -29,6 +30,8 @@ final class StatusEventStreamHandler: NSObject, FlutterStreamHandler {
                 return "error,\(message)"
             case .permission(message: let message):
                 return "permission,\(message)"
+            case .deviceRebooted(message: let message):
+                return "device_rebooted,\(message)"
             }
         }
     }
