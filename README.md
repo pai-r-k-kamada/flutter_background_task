@@ -8,39 +8,39 @@ Developed with 💙 by [Never inc](https://neverjp.com/).
 
 ## Motivation
 
-Enable developers to continue processing even when the application transitions to the background, we have created a package that allows processing to continue using location updates.This package was created with reference to [background_location](https://pub.dev/packages/background_location).
+A Flutter plugin for beacon detection that works in background. This plugin enables developers to monitor iBeacon/BLE beacons even when the application transitions to the background.
 
-Can be used when you want to run the program periodically in the background.
+Can be used when you want to:
 
-- Monitor and notify the distance walked and steps.
-- Notification of destination arrival.
-- Tracking location information (sending it to a server).
+- Detect proximity to beacons in retail stores or museums
+- Trigger notifications when entering/exiting beacon regions  
+- Track beacon encounters for contact tracing
+- Implement location-based services using beacons
 
 ## Usage
 
 ```dart
-// Monitor notifications of background processes.
-// However, Cannot be used while the app is in task kill.
-BackgroundTask.instance.stream.listen((event) {
-  // Implement the process you want to run in the background.
-  // ex) Check health data.
+// Monitor beacon events in the background.
+BackgroundTask.instance.beacon.listen((event) {
+  // Handle beacon events
+  print('Beacon detected: ${event}');
 });
 
-// Start background processing with location updates.
-await BackgroundTask.instance.start();
+// Start beacon monitoring with specified UUID.
+await BackgroundTask.instance.startBeacon('D30A3941-35F9-D31A-215B-1EACF2DADB8B');
 
-// Stop background processing and location updates.
-await BackgroundTask.instance.stop();
+// Stop beacon monitoring.
+await BackgroundTask.instance.stopBeacon();
 ```
 
-This is an implementation for receiving updates even when the task is task-killed. In this package, iOS uses [startMonitoringSignificantLocationChanges](https://developer.apple.com/documentation/corelocation/cllocationmanager/1423531-startmonitoringsignificantlocati) and Android uses [ForegroundService](https://developer.android.com/develop/background-work/services/foreground-services).
+This implementation works even when the task is killed. The plugin uses foreground services on Android and beacon monitoring on iOS.
 
 ```dart
 // Define callback handler at the top level.
 @pragma('vm:entry-point')
-void backgroundHandler(Location data) {
+void backgroundHandler(Beacon beacon, ServiceEvents event) {
   // Implement the process you want to run in the background.
-  // ex) Check health data.
+  // Handle beacon enter/exit events
 }
 
 void main() {
@@ -50,15 +50,16 @@ void main() {
 }
 ```
 
-To get the latest location information in a task-killed status, set the app to Always.
+To monitor beacons in a task-killed status, set location permissions to Always on both iOS and Android.
 
 ![ios](./img/ios_location_permission_for_task_kill.png)
 ![android](./img/android_location_permission_for_task_kill.png)
 
-This is an implementation for when you want to stop using the application when it is killed.
+This is an implementation for when you want to stop beacon monitoring when the application is killed.
 
 ```dart
-await BackgroundTask.instance.start(
+await BackgroundTask.instance.startBeacon(
+  'D30A3941-35F9-D31A-215B-1EACF2DADB8B',
   isEnabledEvenIfKilled: false,
 );
 ```
@@ -70,7 +71,7 @@ final status = await Permission.location.request();
 final statusAlways = await Permission.locationAlways.request();
 
 if (status.isGranted && statusAlways.isGranted) {
-  await BackgroundTask.instance.start();
+  await BackgroundTask.instance.startBeacon('D30A3941-35F9-D31A-215B-1EACF2DADB8B');
 }
 ```
 
@@ -87,11 +88,11 @@ iOS: Info.plist
 
 ```xml
 <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>Used to monitor location in the background and notify to app.</string>
+<string>Used to monitor beacons in the background.</string>
 <key>NSLocationAlwaysUsageDescription</key>
-<string>Used to monitor location in the background and notify to app.</string>
+<string>Used to monitor beacons in the background.</string>
 <key>NSLocationWhenInUseUsageDescription</key>
-<string>Used to monitor location in the background and notify to app.</string>
+<string>Used to monitor beacons in the background.</string>
 <key>UIBackgroundModes</key>
 <array>
     <string>fetch</string>

@@ -29,7 +29,6 @@ import androidx.core.app.ActivityCompat
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.Observer
 import com.neverjp.background_task.lib.BeaconEventStreamHandler
-import com.neverjp.background_task.lib.BgEventStreamHandler
 import com.neverjp.background_task.lib.ChannelName
 import com.neverjp.background_task.lib.StatusEventStreamHandler
 import io.flutter.plugin.common.PluginRegistry
@@ -49,15 +48,14 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
   private var context: Context? = null
   private lateinit var channel : MethodChannel
   private var activity: Activity? = null
-  private var bgEventChannel: EventChannel? = null
   private var statusEventChannel: EventChannel? = null
   private var beaconEventChannel: EventChannel? = null
   private var dispatcherRawHandle: Long? = null
   private var handlerRawHandle: Long? = null
   private val isEnabledEvenIfKilled: Boolean
-    get() = pref.getBoolean(LocationUpdatesService.isEnabledEvenIfKilledKey, false)
+    get() = pref.getBoolean(BeaconService.isEnabledEvenIfKilledKey, false)
   private val pref: SharedPreferences
-    get() =  context!!.getSharedPreferences(LocationUpdatesService.PREF_FILE_NAME, Context.MODE_PRIVATE)
+    get() =  context!!.getSharedPreferences(BeaconService.PREF_FILE_NAME, Context.MODE_PRIVATE)
 
   companion object {
     private val TAG = BackgroundTaskPlugin::class.java.simpleName
@@ -70,9 +68,6 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
     channel = MethodChannel(messenger, ChannelName.METHODS.value)
     channel.setMethodCallHandler(this)
 
-    bgEventChannel = EventChannel(messenger, ChannelName.BG_EVENT.value)
-    bgEventChannel?.setStreamHandler(BgEventStreamHandler())
-
     statusEventChannel = EventChannel(messenger, ChannelName.STATUS_EVENT.value)
     statusEventChannel?.setStreamHandler(StatusEventStreamHandler())
 
@@ -83,63 +78,36 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
   @RequiresApi(Build.VERSION_CODES.O)
   override fun onMethodCall(call: MethodCall, result: Result) {
     when (call.method) {
-        "start_background_task" -> {
-          val distanceFilter = call.argument<Double>(LocationUpdatesService.distanceFilterKey)
-          val updateIntervalInMilliseconds = call.argument<Double>(LocationUpdatesService.updateIntervalInMillisecondsKey)
-          val desiredAccuracy = call.argument<String>(LocationUpdatesService.desiredAccuracyKey) ?: "priorityBalancedPowerAccuracy"
-          val isEnabledEvenIfKilled = call.argument<Boolean>("isEnabledEvenIfKilled") ?: false
-
-          pref.edit().apply {
-            remove(LocationUpdatesService.callbackDispatcherRawHandleKey)
-            remove(LocationUpdatesService.callbackHandlerRawHandleKey)
-            if (dispatcherRawHandle != null && handlerRawHandle != null) {
-              putLong(LocationUpdatesService.callbackDispatcherRawHandleKey, dispatcherRawHandle ?: 0)
-              putLong(LocationUpdatesService.callbackHandlerRawHandleKey, handlerRawHandle ?: 0)
-            }
-            putFloat(LocationUpdatesService.distanceFilterKey, distanceFilter?.toFloat() ?: 0.0.toFloat())
-            putLong(LocationUpdatesService.updateIntervalInMillisecondsKey, updateIntervalInMilliseconds?.toLong() ?: 0.0.toLong())
-            putString(LocationUpdatesService.desiredAccuracyKey, desiredAccuracy)
-            putBoolean(LocationUpdatesService.isEnabledEvenIfKilledKey, isEnabledEvenIfKilled)
-          }.apply()
-
-          startLocationService()
-          result.success(true)
-        }
-        "stop_background_task" -> {
-          stopLocationService()
-          pref.edit().putBoolean(LocationUpdatesService.isEnabledEvenIfKilledKey, false).apply()
-          result.success(true)
-        }
         "set_android_notification" -> {
           setAndroidNotification(call.argument("title"),call.argument("message"),call.argument("icon"))
           result.success(true)
         }
         "is_running_background_task" -> {
-          result.success(LocationUpdatesService.isRunning)
+          result.success(BeaconService.isRunning)
         }
         "callback_channel_initialized" -> {
           channel.invokeMethod("notify_callback_dispatcher", null)
         }
         "set_background_handler" -> {
-          dispatcherRawHandle = call.argument<Long>(LocationUpdatesService.callbackDispatcherRawHandleKey)
-          handlerRawHandle = call.argument<Long>(LocationUpdatesService.callbackHandlerRawHandleKey)
+          dispatcherRawHandle = call.argument<Long>(BeaconService.callbackDispatcherRawHandleKey)
+          handlerRawHandle = call.argument<Long>(BeaconService.callbackHandlerRawHandleKey)
           Log.d(TAG, "registered ${call.arguments}")
           result.success(true)
         }
         "start_beacon_task" -> {
-          val distanceFilter = call.argument<Double>(LocationUpdatesService.distanceFilterKey)
+          val distanceFilter = call.argument<Double>(BeaconService.distanceFilterKey)
           val isEnabledEvenIfKilled = call.argument<Boolean>("isEnabledEvenIfKilled") ?: false
           val uuid = call.argument<String>("uuid") ?: ""
 
           pref.edit().apply {
-            remove(LocationUpdatesService.callbackDispatcherRawHandleKey)
-            remove(LocationUpdatesService.callbackHandlerRawHandleKey)
+            remove(BeaconService.callbackDispatcherRawHandleKey)
+            remove(BeaconService.callbackHandlerRawHandleKey)
             if (dispatcherRawHandle != null && handlerRawHandle != null) {
-              putLong(LocationUpdatesService.callbackDispatcherRawHandleKey, dispatcherRawHandle ?: 0)
-              putLong(LocationUpdatesService.callbackHandlerRawHandleKey, handlerRawHandle ?: 0)
+              putLong(BeaconService.callbackDispatcherRawHandleKey, dispatcherRawHandle ?: 0)
+              putLong(BeaconService.callbackHandlerRawHandleKey, handlerRawHandle ?: 0)
             }
-            putFloat(LocationUpdatesService.distanceFilterKey, distanceFilter?.toFloat() ?: 0.0.toFloat())
-            putBoolean(LocationUpdatesService.isEnabledEvenIfKilledKey, isEnabledEvenIfKilled)
+            putFloat(BeaconService.distanceFilterKey, distanceFilter?.toFloat() ?: 0.0.toFloat())
+            putBoolean(BeaconService.isEnabledEvenIfKilledKey, isEnabledEvenIfKilled)
           }.apply()
           startBeaconService(uuid)
           result.success(true)
@@ -170,11 +138,10 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
 
   override fun onDetachedFromActivity() {
     if (isEnabledEvenIfKilled) {
-      LocationUpdatesService.locationLiveData.removeObserver(locationObserver)
-      LocationUpdatesService.statusLiveData.removeObserver(statusObserver)
+      BeaconService.statusLiveData.removeObserver(statusObserver)
       BeaconService.beaconLiveData.removeObserver(beaconObserver)
     } else {
-      stopLocationService()
+      stopBeaconService()
     }
   }
 
@@ -205,7 +172,6 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
     val data = HashMap<String, Any?>()
     data["lat"] = it.first
     data["lng"] = it.second
-    BgEventStreamHandler.eventSink?.success(data)
   }
 
   private val statusObserver = Observer<String> {
@@ -216,31 +182,6 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
     BeaconEventStreamHandler.eventSink?.success(it)
   }
 
-  private fun startLocationService() {
-    if (!checkPermissions()) {
-      requestPermissions()
-    }
-
-    val intent = Intent(context, LocationUpdatesService::class.java)
-    context!!.stopService(intent)
-
-    LocationUpdatesService.locationLiveData.observeForever(locationObserver)
-    LocationUpdatesService.statusLiveData.observeForever(statusObserver)
-
-    context!!.startService(intent)
-  }
-
-  private fun stopLocationService() {
-    if (!LocationUpdatesService.isRunning) {
-      return
-    }
-    val intent = Intent(context, LocationUpdatesService::class.java)
-    context!!.stopService(intent)
-    LocationUpdatesService.statusLiveData.value = StatusEventStreamHandler.StatusType.Stop.value
-    LocationUpdatesService.locationLiveData.removeObserver(locationObserver)
-    LocationUpdatesService.statusLiveData.removeObserver(statusObserver)
-  }
-
   private fun startBeaconService(uuid: String) {
     if (!checkPermissions()) {
       requestPermissions()
@@ -249,8 +190,8 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
     val intent = Intent(context, BeaconService::class.java)
     context!!.stopService(intent)
 
-    BeaconService.locationLiveData.observeForever(locationObserver)
     BeaconService.beaconLiveData.observeForever(beaconObserver)
+    BeaconService.statusLiveData.observeForever(statusObserver)
 
     intent.putExtra("uuid", uuid)
 
@@ -261,7 +202,7 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
     val intent = Intent(context, BeaconService::class.java)
     context!!.stopService(intent)
     BeaconService.statusLiveData.value = StatusEventStreamHandler.StatusType.Stop.value
-    BeaconService.locationLiveData.removeObserver(locationObserver)
+    BeaconService.statusLiveData.removeObserver(statusObserver)
     BeaconService.beaconLiveData.removeObserver(beaconObserver)
   }
 
@@ -281,9 +222,9 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
   }
 
   private fun setAndroidNotification(title: String?, message: String?, icon: String?) {
-    if (title != null) LocationUpdatesService.NOTIFICATION_TITLE = title
-    if (message != null) LocationUpdatesService.NOTIFICATION_MESSAGE = message
-    if (icon != null) LocationUpdatesService.NOTIFICATION_ICON = icon
+    if (title != null) BeaconService.NOTIFICATION_TITLE = title
+    if (message != null) BeaconService.NOTIFICATION_MESSAGE = message
+    if (icon != null) BeaconService.NOTIFICATION_ICON = icon
   }
 }
 

@@ -12,9 +12,6 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.gms.location.*
 import com.neverjp.background_task.lib.ChannelName
 import com.neverjp.background_task.lib.MonitorState
 import com.neverjp.background_task.lib.ServiceEvents
@@ -35,17 +32,12 @@ class BeaconService: Service()  {
     private var serviceHandler: Handler? = null
     private var methodChannel: MethodChannel? = null
     private var region: Region? = null
-    private var isGoogleApiAvailable: Boolean = false
-    private var fusedLocationClient: FusedLocationProviderClient? = null
-    private var fusedLocationCallback: LocationCallback? = null
-    private var locationRequest: LocationRequest? = null
-    private var isRunning: Boolean = false
     private var looper: Looper? = null
 
     //シングルトン
     companion object {
-        private val _locationLiveData = MutableLiveData<Pair<Double?, Double?>>()
-        val locationLiveData: LiveData<Pair<Double?, Double?>> = _locationLiveData
+        var isRunning: Boolean = false
+            private set
 
         private val _beaconLiveData = MutableLiveData<HashMap<String, Any?>>()
         val beaconLiveData: LiveData<HashMap<String, Any?>> = _beaconLiveData
@@ -57,9 +49,6 @@ class BeaconService: Service()  {
         const val TAG = "beacon_receiver_nex"
         const val IBEACON_FORMAT = "m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"
         var UUID = "D30A3941-35F9-D31A-215B-1EACF2DADB8B"
-//        const val UUID = "a0902400-b2d6-5635-99c7-e0c113e17a03"
-
-        const val UPDATE_INTERVAL_IN_MILLISECONDS: Long = 1000
 
         const val distanceFilterKey = "distanceFilter"
         const val callbackDispatcherRawHandleKey = "callbackDispatcherRawHandle"
@@ -67,6 +56,10 @@ class BeaconService: Service()  {
         const val isEnabledEvenIfKilledKey = "isEnabledEvenIfKilled"
 
         const val PREF_FILE_NAME = "BACKGROUND_TASK"
+        
+        var NOTIFICATION_TITLE = "Background task is running"
+        var NOTIFICATION_MESSAGE = "Background task is running"
+        var NOTIFICATION_ICON = "@mipmap/ic_launcher"
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -78,8 +71,9 @@ class BeaconService: Service()  {
         pref = applicationContext.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
         //ビーコンの取得処理を開始
         startBeaconMonitor()
-//        initHandler()
-//        startLocationService()
+        
+        isRunning = true
+        statusLiveData.value = StatusEventStreamHandler.StatusType.Start.value
         return START_STICKY
     }
 
@@ -123,8 +117,6 @@ class BeaconService: Service()  {
                 "state" to MonitorState.Enter.id,
                 "region" to region.toString()
             ))
-            //入を検知したため位置情報の取得を開始
-//            startLocationService()
         }
         //ビーコンの出を検知
         override fun didExitRegion(region: Region?) {
@@ -133,8 +125,6 @@ class BeaconService: Service()  {
                 "state" to MonitorState.Exit.id,
                 "region" to region.toString()
             ))
-            //出を検知したため位置情報の取得を停止
-//            stopLocationService()
         }
         //ビーコンの入出状態が変更されたことを検知
         override fun didDetermineStateForRegion(state: Int, region: Region?) {
@@ -143,62 +133,9 @@ class BeaconService: Service()  {
                 "state" to state,
                 "region" to region.toString()
             ))
-
-            if(!isRunning){
-                startLocationService()
-            }
         }
     }
 
-    //位置情報取得処理の開始
-    private fun startLocationService(){
-        //googleApiが利用可能か
-        val googleAPIAvailability = GoogleApiAvailability.getInstance()
-            .isGooglePlayServicesAvailable(applicationContext)
-        isGoogleApiAvailable = googleAPIAvailability == ConnectionResult.SUCCESS
-        Log.d(TAG,"isGoogleApiAvailable $isGoogleApiAvailable")
-        if (isGoogleApiAvailable) {
-            //利用可能の場合
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-            //位置情報取得時のコールバック
-            fusedLocationCallback = object : LocationCallback() {
-                override fun onLocationResult(locationResult: LocationResult) {
-                    super.onLocationResult(locationResult)
-                    val newLastLocation = locationResult.lastLocation
-                    val lat = newLastLocation?.latitude
-                    val lng = newLastLocation?.longitude
-                    val value = "lat:${lat ?: 0} lng:${lng ?: 0}"
-                    _locationLiveData.value = Pair(lat, lng)
-                    statusLiveData.value = StatusEventStreamHandler.StatusType.Updated(value).value
-
-                    sendData(ServiceEvents.Location, hashMapOf(
-                        "lat" to (lat ?: 0),
-                        "lng" to (lng ?: 0),
-                    ))
-                }
-            }
-
-            val distanceFilter = pref.getFloat(distanceFilterKey, 0.0.toFloat())
-            locationRequest = createRequest(distanceFilter)
-            requestLocationUpdates()
-
-            isRunning = true
-//            statusLiveData.value = StatusEventStreamHandler.StatusType.Start.value
-        }
-    }
-
-    private fun stopLocationService(){
-//        unregisterReceiver(broadcastReceiver)
-        try {
-            if (isGoogleApiAvailable) {
-                fusedLocationClient!!.removeLocationUpdates(fusedLocationCallback!!)
-            }
-            statusLiveData.value = StatusEventStreamHandler.StatusType.Stop.value
-            isRunning = false
-        } catch (unlikely: SecurityException) {
-            Log.e(TAG, "$unlikely")
-        }
-    }
 
     //レージングイベント
     private val rangeNotifier = RangeNotifier { collection, region ->
@@ -230,30 +167,6 @@ class BeaconService: Service()  {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun requestLocationUpdates() {
-        try {
-            if (isGoogleApiAvailable && locationRequest != null) {
-                fusedLocationClient!!.requestLocationUpdates(
-                    locationRequest!!,
-                    fusedLocationCallback!!,
-                    looper
-                )
-            }
-        } catch (unlikely: SecurityException) {
-            Log.e(TAG, "$unlikely")
-        }
-    }
-
-    private fun createRequest(distanceFilter: Float): LocationRequest =
-        LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            UPDATE_INTERVAL_IN_MILLISECONDS
-        ).apply {
-            setMinUpdateDistanceMeters(distanceFilter)
-            setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
-            setWaitForAccurateLocation(true)
-        }.build()
 
     private fun initHandler(){
         //ハンドラーを開始
@@ -296,13 +209,12 @@ class BeaconService: Service()  {
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
 
         try {
-            if(isRunning){
-                stopLocationService()
-            }
             beaconManager?.stopMonitoring(region!!)
             beaconManager?.removeMonitorNotifier(monitorNotifier)
+            statusLiveData.value = StatusEventStreamHandler.StatusType.Stop.value
         } catch (unlikely: SecurityException) {
             Log.e(TAG, "$unlikely")
         }

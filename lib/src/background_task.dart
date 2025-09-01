@@ -10,7 +10,6 @@ import 'types.dart';
 class BackgroundTask {
   BackgroundTask(
     this._methodChannel,
-    this._bgEventChannel,
     this._statusEventChannel,
     this._beaconEventChannel,
   );
@@ -20,17 +19,15 @@ class BackgroundTask {
 
   static final BackgroundTask _instance = BackgroundTask(
     MethodChannel(ChannelName.methods.value),
-    EventChannel(ChannelName.bgEvent.value),
     EventChannel(ChannelName.statusEvent.value),
     EventChannel(ChannelName.beaconEvent.value),
   );
 
   final MethodChannel _methodChannel;
-  final EventChannel _bgEventChannel;
   final EventChannel _statusEventChannel;
   final EventChannel _beaconEventChannel;
 
-  /// `setBackgroundHandler` provides a function of location information.
+  /// `setBackgroundHandler` provides a background handler function.
   Future<void> setBackgroundHandler(BackgroundHandler handler) async {
     final callbackDispatcherHandle =
         PluginUtilities.getCallbackHandle(callbackDispatcher);
@@ -64,45 +61,6 @@ class BackgroundTask {
     }
   }
 
-  /// `start` starts the background task.
-  /// `distanceFilter` - the minimum distance (in meters) a device must move
-  /// horizontally before an update event is generated.
-  /// `pausesLocationUpdatesAutomatically` - A Boolean value that indicates
-  /// whether the location-manager object may pause location updates.
-  /// `isEnabledEvenIfKilled` - if set to true, the location service will
-  /// not stop even after the app is killed.
-  /// `updateIntervalInMilliseconds` - location information acquisition interval
-  /// for Android.
-  /// `iOSDesiredAccuracy` - the desired accuracy of the location data for iOS.
-  /// `AndroidDesiredAccuracy` - the desired accuracy of the location data
-  ///  for Android.
-  Future<void> start({
-    double? distanceFilter,
-    bool? pausesLocationUpdatesAutomatically,
-    bool isEnabledEvenIfKilled = true,
-    double updateIntervalInMilliseconds = 1000,
-    DesiredAccuracy iOSDesiredAccuracy = DesiredAccuracy.bestForNavigation,
-    AndroidDesiredAccuracy androidDesiredAccuracy =
-        AndroidDesiredAccuracy.priorityBalancedPowerAccuracy,
-  }) async {
-    await _methodChannel.invokeMethod<bool>(
-      'start_background_task',
-      {
-        'distanceFilter': distanceFilter,
-        'pausesLocationUpdatesAutomatically':
-            pausesLocationUpdatesAutomatically,
-        'isEnabledEvenIfKilled': isEnabledEvenIfKilled,
-        'updateIntervalInMilliseconds': updateIntervalInMilliseconds,
-        'iOSDesiredAccuracy': iOSDesiredAccuracy.value,
-        'androidDesiredAccuracy': androidDesiredAccuracy.value,
-      },
-    );
-  }
-
-  /// `stop` stops the background task.
-  Future<void> stop() async {
-    await _methodChannel.invokeMethod<bool>('stop_background_task');
-  }
 
   Future<void> startBeacon(
     String uuid,
@@ -130,14 +88,6 @@ class BackgroundTask {
     return result ?? false;
   }
 
-  /// `stream` provides a stream of location information.
-  Stream<Location> get stream =>
-      _bgEventChannel.receiveBroadcastStream().map((event) {
-        final json = event as Map;
-        final lat = json['lat'] as double?;
-        final lng = json['lng'] as double?;
-        return (lat: lat, lng: lng);
-      }).asBroadcastStream();
 
   /// `status` provides a stream of status events.
   Stream<StatusEvent> get status =>
