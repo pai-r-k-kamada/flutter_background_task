@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import androd.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
 import androidx.core.content.ContextCompat
 import android.os.*
 import android.util.Log
@@ -59,8 +60,8 @@ class BeaconService: Service()  {
 
         const val PREF_FILE_NAME = "BACKGROUND_TASK"
         
-        var NOTIFICATION_TITLE = "Background task is running"
-        var NOTIFICATION_MESSAGE = "Background task is running"
+        var NOTIFICATION_TITLE = "Beacon task is running"
+        var NOTIFICATION_MESSAGE = "Beacon task is running"
         var NOTIFICATION_ICON = "@mipmap/ic_launcher"
     }
 
@@ -70,7 +71,14 @@ class BeaconService: Service()  {
 
         // フォアグラウンドサービスを即座に開始
         val notification = createNotification()
-        startForeground(456, notification)
+        
+        // Android 8.0+ (API 26+) では startForegroundService を使用
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForeground(456, notification, FOREGROUND_SERVICE_TYPE_LOCATION)
+        } else {
+            startForeground(456, notification)
+        }
+        
 
         looper = Looper.myLooper()
         pref = applicationContext.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
