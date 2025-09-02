@@ -68,6 +68,10 @@ class BeaconService: Service()  {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
+        // フォアグラウンドサービスを即座に開始
+        val notification = createNotification()
+        startForeground(456, notification)
+
         looper = Looper.myLooper()
         pref = applicationContext.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
         
@@ -289,5 +293,14 @@ class BeaconService: Service()  {
                 }
             }
         }
+    }
+
+    // フォアグラウンドサービス用の通知を作成
+    private fun createNotification(): Notification {
+        return Notification.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle(NOTIFICATION_TITLE)
+            .setContentText(NOTIFICATION_MESSAGE)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .build()
     }
 }
