@@ -3,23 +3,29 @@ import 'dart:io';
 
 import 'package:background_task/background_task.dart';
 import 'package:background_task_example/log_page.dart';
+import 'package:background_task_example/model/beacon_data.dart';
 import 'package:background_task_example/model/isar_repository.dart';
-import 'package:background_task_example/model/lat_lng.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 @pragma('vm:entry-point')
-void backgroundHandler(Location data) {
-  debugPrint('backgroundHandler: ${DateTime.now()}, $data');
+void backgroundHandler(Beacon beacon, ServiceEvents event) {
+  debugPrint('backgroundHandler: ${DateTime.now()}, $beacon, $event');
   Future(() async {
     await IsarRepository.configure();
     IsarRepository.isar.writeTxnSync(() {
-      final latLng = LatLng()
-        ..lat = data.lat ?? 0
-        ..lng = data.lng ?? 0;
-      IsarRepository.isar.latLngs.putSync(latLng);
+      final beaconData = BeaconData()
+        ..uuid = beacon.uuid
+        ..major = beacon.major
+        ..minor = beacon.minor
+        ..distance = beacon.distance
+        ..rssi = beacon.rssi
+        ..txpower = beacon.txpower
+        ..proximity = beacon.proximity?.name
+        ..monitorState = beacon.monitorState?.name;
+      IsarRepository.isar.beaconDatas.putSync(beaconData);
     });
   });
 }
@@ -54,16 +60,18 @@ class _MainPageState extends State<MainPage> {
   String _bgText = 'no start';
   String _statusText = 'status';
   bool _isEnabledEvenIfKilled = true;
+  String _beaconUuid = 'D30A3941-35F9-D31A-215B-1EACF2DADB8B';
 
-  late final StreamSubscription<Location> _bgDisposer;
+  late final StreamSubscription<Map<String, dynamic>> _bgDisposer;
   late final StreamSubscription<StatusEvent> _statusDisposer;
 
   @override
   void initState() {
     super.initState();
 
-    _bgDisposer = BackgroundTask.instance.stream.listen((event) {
-      final message = '${DateTime.now()}: ${event.lat}, ${event.lng}';
+    _bgDisposer = BackgroundTask.instance.beacon.listen((event) {
+      final message = '${DateTime.now()}: '
+          'Region:${event['region']}, State:${event['state']}';
       debugPrint(message);
       setState(() {
         _bgText = message;
@@ -76,8 +84,8 @@ class _MainPageState extends State<MainPage> {
       if (Platform.isAndroid) {
         if (result.isGranted) {
           await BackgroundTask.instance.setAndroidNotification(
-            title: 'バックグラウンド処理',
-            message: 'バックグラウンド処理を実行中',
+            title: 'Beacon監視中',
+            message: 'バックグラウンドでBeaconを監視しています',
           );
         }
       }
@@ -103,13 +111,13 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Plugin example app'),
+        title: const Text('Beacon Monitor Example'),
         actions: [
           IconButton(
             onPressed: () {
               LogPage.show(context);
             },
-            icon: const Icon(Icons.edit_location_alt),
+            icon: const Icon(Icons.bluetooth_searching),
             iconSize: 32,
           ),
         ],
@@ -128,6 +136,19 @@ class _MainPageState extends State<MainPage> {
                 Text(
                   _statusText,
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Beacon UUID',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _beaconUuid = value;
+                    });
+                  },
+                  controller: TextEditingController(text: _beaconUuid),
                 ),
               ],
             ),
@@ -163,7 +184,7 @@ class _MainPageState extends State<MainPage> {
                             ),
                           ),
                           alignment: PlaceholderAlignment.middle,
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -176,17 +197,18 @@ class _MainPageState extends State<MainPage> {
                           await Permission.locationAlways.request();
 
                       if (status.isGranted && statusAlways.isGranted) {
-                        await BackgroundTask.instance.start(
+                        await BackgroundTask.instance.startBeacon(
+                          _beaconUuid,
                           isEnabledEvenIfKilled: _isEnabledEvenIfKilled,
                         );
                         setState(() {
-                          _bgText = 'start';
+                          _bgText = 'Beacon monitoring started';
                         });
                       } else {
                         setState(() {
-                          _bgText = 'Permission is not isGranted.\n'
+                          _bgText = 'Permission is not granted.\n'
                               'location: $status\n'
-                              'locationAlways: $status';
+                              'locationAlways: $statusAlways';
                         });
                       }
                     },
@@ -201,9 +223,9 @@ class _MainPageState extends State<MainPage> {
                 Flexible(
                   child: FilledButton(
                     onPressed: () async {
-                      await BackgroundTask.instance.stop();
+                      await BackgroundTask.instance.stopBeacon();
                       setState(() {
-                        _bgText = 'stop';
+                        _bgText = 'Beacon monitoring stopped';
                       });
                     },
                     child: const Text('Stop'),

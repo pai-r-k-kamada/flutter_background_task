@@ -45,11 +45,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Used to monitor location in the background and notify to app.</string>
+	<string>Used to monitor beacons in the background and notify to app.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Used to monitor location in the background and notify to app.</string>
+	<string>Used to monitor beacons in the background and notify to app.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Used to monitor location in the background and notify to app.</string>
+	<string>Used to monitor beacons in the background and notify to app.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

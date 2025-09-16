@@ -1,8 +1,5 @@
 import 'package:background_task/src/beacon.dart';
 
-/// `Location` is a type representing latitude and longitude.
-typedef Location = ({double? lat, double? lng});
-
 /// `StatusEvent` is a type representing a status event.
 typedef StatusEvent = ({StatusEventType status, String? message});
 
@@ -23,7 +20,7 @@ enum StatusEventType {
 }
 
 /// `DesiredAccuracy` is an enumeration representing
-/// the desired accuracy for beacon monitoring.
+/// the desired accuracy for beacon detection.
 enum DesiredAccuracy {
   reduced('reduced'),
   bestForNavigation('bestForNavigation'),

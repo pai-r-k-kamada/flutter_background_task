@@ -168,12 +168,6 @@ class BackgroundTaskPlugin: FlutterPlugin, MethodCallHandler, ActivityAware, Plu
     return true
   }
 
-  private val locationObserver = Observer<Pair<Double?, Double?>> {
-    val data = HashMap<String, Any?>()
-    data["lat"] = it.first
-    data["lng"] = it.second
-  }
-
   private val statusObserver = Observer<String> {
     StatusEventStreamHandler.eventSink?.success(it)
   }

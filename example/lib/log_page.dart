@@ -1,13 +1,12 @@
 import 'dart:async';
 
+import 'package:background_task_example/model/beacon_data.dart';
 import 'package:background_task_example/model/isar_repository.dart';
-import 'package:background_task_example/model/lat_lng.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:isar/isar.dart';
-import 'package:map_launcher/map_launcher.dart';
 
 class LogPage extends StatefulWidget {
   const LogPage({super.key});
@@ -26,7 +25,7 @@ class LogPage extends StatefulWidget {
 }
 
 class _LogPageState extends State<LogPage> {
-  List<LatLng> items = [];
+  List<BeaconData> items = [];
   bool isLoading = false;
 
   final ScrollController scrollController = ScrollController();
@@ -39,7 +38,7 @@ class _LogPageState extends State<LogPage> {
   }
 
   Future<void> onRefresh() async {
-    final data = await IsarRepository.isar.latLngs
+    final data = await IsarRepository.isar.beaconDatas
         .where()
         .sortByCreatedAtDesc()
         .limit(items.length > defaultLimit ? items.length : defaultLimit)
@@ -50,7 +49,7 @@ class _LogPageState extends State<LogPage> {
   }
 
   Future<void> onLoadMore() async {
-    final data = await IsarRepository.isar.latLngs
+    final data = await IsarRepository.isar.beaconDatas
         .where()
         .sortByCreatedAtDesc()
         .offset(items.length)
@@ -65,13 +64,13 @@ class _LogPageState extends State<LogPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Background Log'),
+        title: const Text('Beacon Log'),
         actions: [
           IconButton(
             onPressed: () {
               HapticFeedback.heavyImpact();
               IsarRepository.isar.writeTxnSync(() {
-                IsarRepository.isar.latLngs.clearSync();
+                IsarRepository.isar.beaconDatas.clearSync();
                 setState(() {
                   items = [];
                 });
@@ -126,31 +125,59 @@ class _LogPageState extends State<LogPage> {
                   SliverList.separated(
                     itemBuilder: (context, index) {
                       final data = items[index];
-                      return ListTile(
+                      return ExpansionTile(
                         title: Text(
-                          '${data.lat}, ${data.lng}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                          ),
-                        ),
-                        leading: Text(
-                          data.id.toString(),
+                          'UUID: ${data.uuid?.substring(0, 8) ?? "N/A"}...',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        trailing: Text(
-                          DateFormat('yyyy.M.d H:mm:ss', 'ja_JP')
-                              .format(data.createdAt),
+                        subtitle: Text(
+                          'Major: ${data.major ?? "N/A"}, '
+                          'Minor: ${data.minor ?? "N/A"}',
+                          style: const TextStyle(fontSize: 12),
                         ),
-                        onTap: () async {
-                          final availableMaps = await MapLauncher.installedMaps;
-                          await availableMaps.first.showMarker(
-                            coords: Coords(data.lat, data.lng),
-                            title: '${data.lat}, ${data.lng}',
-                          );
-                        },
+                        leading: CircleAvatar(
+                          child: Text(
+                            data.id.toString(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        trailing: Text(
+                          DateFormat('M/d H:mm:ss', 'ja_JP')
+                              .format(data.createdAt),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildDetailRow('UUID', data.uuid ?? 'N/A'),
+                                _buildDetailRow('Major', data.major ?? 'N/A'),
+                                _buildDetailRow('Minor', data.minor ?? 'N/A'),
+                                _buildDetailRow('Distance', data.distance ?? 'N/A'),
+                                _buildDetailRow('RSSI', data.rssi ?? 'N/A'),
+                                _buildDetailRow('TX Power', data.txpower ?? 'N/A'),
+                                _buildDetailRow('Proximity', data.proximity ?? 'N/A'),
+                                _buildDetailRow(
+                                  'Monitor State',
+                                  data.monitorState ?? 'N/A',
+                                ),
+                                _buildDetailRow(
+                                  'Created At',
+                                  DateFormat('yyyy/MM/dd HH:mm:ss', 'ja_JP')
+                                      .format(data.createdAt),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       );
                     },
                     separatorBuilder: (context, index) {
@@ -176,7 +203,7 @@ class _LogPageState extends State<LogPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16)
                           .copyWith(bottom: 108),
                       child: const Text(
-                        'nothing',
+                        'No beacon data',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -185,6 +212,33 @@ class _LogPageState extends State<LogPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
